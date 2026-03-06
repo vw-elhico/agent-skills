@@ -30,10 +30,14 @@ When triggered, **always ask the user** for:
    User can override with `owner/repo` format. If overridden, use `gh` commands
    with `--repo owner/repo` flag. For git log commands, the repo must be cloned locally.
 
-3. **Output format** — ask if not specified:
+3. **Output format** — ask if not specified. **Multiple selections allowed** (e.g. `slack + file`):
    - `terminal` (default) — render report as markdown in chat
-   - `slack` — send via slack-notify skill
+   - `slack` — send via slack-notify skill (condensed summary + full .md upload + chart PNGs)
    - `file` — save as `sprint-report-YYYY-MM-DD.md` in repo root
+   
+   The user can pick any combination. If multiple formats are selected, execute all of them
+   in sequence. For example: `slack + file` generates the report once, then sends it to Slack
+   AND saves the .md file locally. `terminal + slack` renders in chat AND sends to Slack.
 
 ## Date Variable Convention
 
@@ -181,14 +185,18 @@ Files with only 1 author = knowledge silo = risk.
 
 ```bash
 # For top 10 hotspot files, count unique authors
-# NOTE: use --pretty=format: to avoid commit body leaking into output
+# IMPORTANT: --pretty=format:'%aN' can leak commit body/metadata in some repos.
+# Use git rev-list + xargs for clean author extraction.
 HOTSPOT_FILES=$(git log --after="$SINCE" --before="$UNTIL" --name-only --pretty=format:'' | \
   grep -v '^$' | sort | uniq -c | sort -rn | head -10)
 
 echo "$HOTSPOT_FILES" | while read -r COUNT FILE; do
   [ -z "$FILE" ] && continue
-  AUTHORS_COUNT=$(git log --after="$SINCE" --before="$UNTIL" -- "$FILE" --pretty=format:'%aN' | sort -u | grep -c .)
-  NAMES=$(git log --after="$SINCE" --before="$UNTIL" -- "$FILE" --pretty=format:'%aN' | sort -u | paste -sd', ' -)
+  # Clean author extraction: rev-list for hashes, then per-hash author lookup
+  NAMES=$(git rev-list --after="$SINCE" --before="$UNTIL" HEAD -- "$FILE" | \
+    xargs -I{} git log -1 --format='%aN' {} | sort -u | paste -sd', ' -)
+  AUTHORS_COUNT=$(git rev-list --after="$SINCE" --before="$UNTIL" HEAD -- "$FILE" | \
+    xargs -I{} git log -1 --format='%aN' {} | sort -u | grep -c .)
   RISK="OK"
   [ "$AUTHORS_COUNT" -le 1 ] && RISK="SILO"
   echo "$COUNT changes | $AUTHORS_COUNT author(s) | $FILE | $NAMES | $RISK"
@@ -452,8 +460,9 @@ print('Chart saved: /tmp/sprint-chart-loc-trend.png')
 
 Collect LOC per day with:
 ```bash
+# NOTE: --format='DATE:%ad' puts the date as part of the field, so use substr() to strip the prefix
 git log --after="$SINCE" --before="$UNTIL" --numstat --format='DATE:%ad' --date=short | \
-  awk '/^DATE:/ { date=$2; next }
+  awk '/^DATE:/ { date=substr($0,6); next }
        NF==3 && $1 != "-" { added[date]+=$1; removed[date]+=$2 }
        END { for (d in added) print d, "+"added[d], "-"removed[d] }' | sort
 ```
@@ -523,13 +532,19 @@ batch them in a single thread.
 
 ```bash
 # Upload each chart PNG — repeat for each chart file
+# IMPORTANT: export env vars so they're available to subprocesses
+set -a
+[[ -f ~/.config/opencode/.env ]] && source ~/.config/opencode/.env
+[[ -f .env.local ]] && source .env.local
+set +a
+
 for CHART in /tmp/sprint-chart-*.png; do
   FILE_NAME=$(basename "$CHART")
-  FILE_SIZE=$(wc -c < "$CHART" | tr -d ' ')
+  FILE_SIZE=$(stat -f%z "$CHART" 2>/dev/null || wc -c < "$CHART" | tr -d ' ')
 
-  URL_RESPONSE=$(curl -s -X GET "https://slack.com/api/files.getUploadURLExternal" \
+  URL_RESPONSE=$(curl -s -X POST "https://slack.com/api/files.getUploadURLExternal" \
     -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
-    -G \
+    -H "Content-Type: application/x-www-form-urlencoded" \
     --data-urlencode "filename=${FILE_NAME}" \
     --data-urlencode "length=${FILE_SIZE}")
 
@@ -679,6 +694,10 @@ Files most frequently associated with bug-fix commits.
 
 ## Output Handling
 
+The user may select **one or more** output formats. Generate the report content once,
+then deliver it to each selected format in sequence. The report markdown and chart data
+are reused across all outputs — no need to re-collect metrics.
+
 ### Terminal (default)
 Render the report directly as markdown in the chat. This is the default if the
 user doesn't specify an output format.
@@ -729,27 +748,46 @@ CHANNEL_ID="$SLACK_DEFAULT_CHANNEL"  # or $SLACK_USER_ME etc.
    - Top 3 refactoring candidates
    - Any knowledge silos found
 
+**IMPORTANT:** For multiline `initial_comment` text, you MUST use python3 with `json.dumps()`
+to build the JSON payload. The `jq --arg` approach BREAKS on literal newlines in shell strings.
+
 ```bash
-INITIAL_COMMENT="Sprint Report von Josie — see attached .md for full details"
+# Use python3 for the completeUploadExternal call with multiline initial_comment
+python3 << PYEOF
+import urllib.request, json, os
 
-COMPLETE_PAYLOAD=$(jq -n \
-  --arg file_id "$FILE_ID" \
-  --arg channel "$CHANNEL_ID" \
-  --arg comment "$INITIAL_COMMENT" \
-  '{files: [{id: $file_id}], channel_id: $channel, initial_comment: $comment}')
+token = os.environ["SLACK_BOT_TOKEN"]
+channel = os.environ["SLACK_DEFAULT_CHANNEL"]
 
-COMPLETE_RESPONSE=$(curl -s -X POST "https://slack.com/api/files.completeUploadExternal" \
-  -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d "$COMPLETE_PAYLOAD")
+summary = """*Sprint Report: [REPO]*
+*Period:* $SINCE to $UNTIL
 
-echo "$COMPLETE_RESPONSE" | jq -r 'if .ok then "File uploaded!" else "ERROR: \(.error)" end'
+*Key Metrics:*
+... condensed summary here ...
+
+Full report attached."""
+
+data = json.dumps({
+    "files": [{"id": "$FILE_ID", "title": "Sprint Report"}],
+    "channel_id": channel,
+    "initial_comment": summary
+}).encode()
+
+req = urllib.request.Request(
+    "https://slack.com/api/files.completeUploadExternal",
+    data=data,
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+)
+resp = urllib.request.urlopen(req)
+result = json.loads(resp.read().decode())
+print("OK" if result.get("ok") else f"ERROR: {result}")
+PYEOF
+
 rm -f "$REPORT_FILE"
 ```
-
-**IMPORTANT:** For the `initial_comment`, keep it short (single-line or very brief).
-For longer summaries as standalone messages, use the python3 method from slack-notify
-(the `jq --arg` approach breaks on newlines in shell strings).
 
 ### File
 Save the full report as a markdown file:
@@ -761,11 +799,14 @@ Confirm the file path to the user after saving.
 
 ## Workflow Summary
 
-1. **Ask** for time range, repo (optional), output format (optional)
+1. **Ask** for time range, repo (optional), output format(s) — **multiple allowed**
 2. **Resolve** dates to ISO format, determine repo (local or remote)
 3. **Collect** all metrics using the bash commands above
-4. **Assemble** the report using the template
-5. **Output** in the requested format (terminal / slack / file)
+4. **Assemble** the report using the template (generate once, reuse for all outputs)
+5. **Output** to each selected format in sequence:
+   - `terminal` → render markdown in chat
+   - `slack` → upload charts + .md file with condensed summary
+   - `file` → save as `sprint-report-YYYY-MM-DD.md`
 6. **Offer** to drill deeper into any section if the user wants
 
 ## Error Handling
