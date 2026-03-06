@@ -4,23 +4,31 @@ Reusable agent skills for the elhico team. Works with OpenCode, Claude Code, Cur
 
 ## Install
 
+### Core Skills (recommended for all developers)
+
 ```bash
-npx skills add vw-elhico/agent-skills
+npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/core
 ```
 
-Install specific skills only:
+### Optional Skills
 
 ```bash
-npx skills add vw-elhico/agent-skills --skill git-commit --skill github-issue
+# All optional skills
+npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/optional
+
+# Specific optional skill
+npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/optional --skill slack-notify
 ```
 
-Install globally (available across all projects):
+### Global installation (available across all projects)
 
 ```bash
-npx skills add vw-elhico/agent-skills -g
+npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/core -g
 ```
 
 ## Available Skills
+
+### Core
 
 | Skill | Description |
 |-------|-------------|
@@ -29,12 +37,17 @@ npx skills add vw-elhico/agent-skills -g
 | `execplan` | Create, implement, discuss, and maintain Execution Plans (ExecPlans) |
 | `git-commit` | Analyze changes, ensure code quality, generate conventional commit messages with issue number |
 | `github-issue` | Write and refine GitHub issues (features and bugs) |
-| `slack-notify` | Send Slack notifications via Bot Token to channels, group DMs, or individual users |
 | `testing-principles` | Test type selection, mocking vs faking decisions, managed vs unmanaged dependencies |
+
+### Optional
+
+| Skill | Description |
+|-------|-------------|
+| `slack-notify` | Send Slack notifications via Bot Token to channels, group DMs, or individual users |
 
 ## Adding New Skills
 
-1. Create a new directory with the skill name
+1. Create a new directory under `skills/core/` or `skills/optional/`
 2. Add a `SKILL.md` with YAML frontmatter:
 
 ```markdown
@@ -48,7 +61,7 @@ description: What this skill does and when the agent should use it
 Instructions for the agent...
 ```
 
-3. Commit and push — the skill is immediately available via `npx skills add vw-elhico/agent-skills`
+3. Commit and push — the skill is immediately available
 
 ## Updating Installed Skills
 
