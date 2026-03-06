@@ -174,14 +174,14 @@ curl -s -X POST "$UPLOAD_URL" \
 **Step 3 — Complete the upload and share to a channel:**
 
 ```bash
-CHANNEL_ID="$SLACK_DEFAULT_CHANNEL"  # or $SLACK_USER_ME, $SLACK_USER_JENS, etc.
+CHANNEL_ID="$SLACK_DEFAULT_CHANNEL"  # must be a channel ID (C...), NOT a user ID (U...)
 INITIAL_COMMENT="Here's the file you requested"  # optional message
 
 COMPLETE_PAYLOAD=$(jq -n \
   --arg file_id "$FILE_ID" \
   --arg channel "$CHANNEL_ID" \
   --arg comment "$INITIAL_COMMENT" \
-  '{files: [{id: $file_id}], channel_id: $channel, initial_comment: $comment}')
+  '{files: [{id: $file_id, title: "My File"}], channel_id: $channel, initial_comment: $comment}')
 
 COMPLETE_RESPONSE=$(curl -s -X POST "https://slack.com/api/files.completeUploadExternal" \
   -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
@@ -190,6 +190,13 @@ COMPLETE_RESPONSE=$(curl -s -X POST "https://slack.com/api/files.completeUploadE
 
 echo "$COMPLETE_RESPONSE" | jq -r 'if .ok then "File uploaded!" else "ERROR: \(.error)" end'
 ```
+
+**IMPORTANT — channel_id must be a Channel ID (format `C...`), not a User ID (`U...`).**
+The `files.completeUploadExternal` API requires a channel/conversation ID matching the
+regex `^[CGDZ][A-Z0-9]{8,}$`. To upload to a user DM, you would need to first open a
+DM conversation via `conversations.open` (requires `im:write` scope). If that scope is
+not available, use `$SLACK_DEFAULT_CHANNEL` instead and mention/tag the user in the
+`initial_comment`.
 
 **Uploading text content directly (without an existing file):**
 

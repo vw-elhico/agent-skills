@@ -416,17 +416,72 @@ Render the report directly as markdown in the chat. This is the default if the
 user doesn't specify an output format.
 
 ### Slack
-After generating the report, use the **slack-notify** skill to send it.
-Since Slack messages have length limits, send a **condensed summary** via Slack:
-- Summary table (commits, issues, LOC)
-- Top 3 contributors
-- Top 3 hotspots
-- Top 3 refactoring candidates
-- Any knowledge silos found
+After generating the report, use the **slack-notify** skill to send it in two steps:
 
-Load the slack-notify skill and follow its workflow for sending.
-**IMPORTANT:** Always use the python3 method from slack-notify for multiline messages.
-The `jq --arg` approach breaks on newlines in shell strings.
+1. **Upload the full report as a `.md` file** using the file upload workflow from
+   slack-notify (3-step upload: get URL, upload content, complete with channel).
+   Save the report to a temp file first, then upload it:
+
+```bash
+set -a
+[[ -f ~/.config/opencode/.env ]] && source ~/.config/opencode/.env
+[[ -f .env.local ]] && source .env.local
+set +a
+
+# Write full report to temp file
+REPORT_FILE=$(mktemp /tmp/sprint-report-XXXXXX.md)
+cat > "$REPORT_FILE" << 'REPORT_EOF'
+... full markdown report content here ...
+REPORT_EOF
+
+FILE_NAME="sprint-report-$(date +%Y-%m-%d).md"
+FILE_SIZE=$(wc -c < "$REPORT_FILE" | tr -d ' ')
+
+# Step 1: Get upload URL
+URL_RESPONSE=$(curl -s -X GET "https://slack.com/api/files.getUploadURLExternal" \
+  -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+  -G \
+  --data-urlencode "filename=${FILE_NAME}" \
+  --data-urlencode "length=${FILE_SIZE}")
+
+UPLOAD_URL=$(echo "$URL_RESPONSE" | jq -r '.upload_url')
+FILE_ID=$(echo "$URL_RESPONSE" | jq -r '.file_id')
+
+# Step 2: Upload file content
+curl -s -X POST "$UPLOAD_URL" -F "file=@${REPORT_FILE}"
+
+# Step 3: Complete upload and share to channel with summary as comment
+CHANNEL_ID="$SLACK_DEFAULT_CHANNEL"  # or $SLACK_USER_ME etc.
+```
+
+2. **Send a condensed summary as the `initial_comment`** on the file upload, containing:
+   - Summary numbers (commits, issues, LOC)
+   - Top 3 contributors
+   - Top 3 hotspots
+   - Top 3 refactoring candidates
+   - Any knowledge silos found
+
+```bash
+INITIAL_COMMENT="Sprint Report von Josie — see attached .md for full details"
+
+COMPLETE_PAYLOAD=$(jq -n \
+  --arg file_id "$FILE_ID" \
+  --arg channel "$CHANNEL_ID" \
+  --arg comment "$INITIAL_COMMENT" \
+  '{files: [{id: $file_id}], channel_id: $channel, initial_comment: $comment}')
+
+COMPLETE_RESPONSE=$(curl -s -X POST "https://slack.com/api/files.completeUploadExternal" \
+  -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "$COMPLETE_PAYLOAD")
+
+echo "$COMPLETE_RESPONSE" | jq -r 'if .ok then "File uploaded!" else "ERROR: \(.error)" end'
+rm -f "$REPORT_FILE"
+```
+
+**IMPORTANT:** For the `initial_comment`, keep it short (single-line or very brief).
+For longer summaries as standalone messages, use the python3 method from slack-notify
+(the `jq --arg` approach breaks on newlines in shell strings).
 
 ### File
 Save the full report as a markdown file:
