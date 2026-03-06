@@ -287,6 +287,274 @@ Highlight patterns like "sprint-end panic" (lots of commits in the last days).
 
 ---
 
+## Charts & Diagrams
+
+Generate visual charts for the report. Use **Mermaid** for Markdown/File output
+(GitHub/GitLab render these natively) and **matplotlib PNGs** for Slack output
+(uploaded as image files).
+
+**Prerequisite for Slack charts:** `python3` with `matplotlib` must be installed.
+If not available, fall back to ASCII charts and warn the user.
+
+### Chart 1: Commit Frequency (Bar Chart)
+
+**Mermaid (for Markdown/File):**
+
+Include this in the report markdown under the Commit Frequency section:
+
+````markdown
+```mermaid
+xychart-beta
+  title "Commit Frequency"
+  x-axis ["2026-02-17", "2026-02-18", ...]
+  y-axis "Commits" 0 --> MAX_VALUE
+  bar [5, 12, 3, ...]
+```
+````
+
+Build the Mermaid block dynamically from the commit frequency data.
+Use the dates as x-axis labels and commit counts as bar values.
+
+**matplotlib (for Slack):**
+
+```bash
+python3 -c "
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import datetime
+
+# Data: replace with actual collected values
+dates = ['2026-02-17', '2026-02-18']  # from git log
+counts = [5, 12]  # from git log
+
+fig, ax = plt.subplots(figsize=(10, 4))
+x = [datetime.strptime(d, '%Y-%m-%d') for d in dates]
+ax.bar(x, counts, color='#4A90D9', width=0.8)
+ax.set_title('Commit Frequency', fontsize=14, fontweight='bold')
+ax.set_ylabel('Commits')
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.savefig('/tmp/sprint-chart-commits.png', dpi=150)
+print('Chart saved: /tmp/sprint-chart-commits.png')
+"
+```
+
+---
+
+### Chart 2: Top Contributors (Horizontal Bar Chart)
+
+**Mermaid (for Markdown/File):**
+
+````markdown
+```mermaid
+xychart-beta horizontal
+  title "Top Contributors (Commits)"
+  x-axis ["Alice", "Bob", "Carol"]
+  y-axis "Commits" 0 --> MAX_VALUE
+  bar [25, 18, 12]
+```
+````
+
+**matplotlib (for Slack):**
+
+```bash
+python3 -c "
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+# Data: replace with actual collected values
+authors = ['Alice', 'Bob', 'Carol']
+commits = [25, 18, 12]
+added = [1200, 800, 400]
+removed = [300, 200, 100]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+# Commits
+ax1.barh(authors, commits, color='#4A90D9')
+ax1.set_title('Commits per Author', fontweight='bold')
+ax1.set_xlabel('Commits')
+ax1.invert_yaxis()
+
+# LOC
+y_pos = range(len(authors))
+ax2.barh([y - 0.15 for y in y_pos], added, height=0.3, color='#50C878', label='Added')
+ax2.barh([y + 0.15 for y in y_pos], [-r for r in removed], height=0.3, color='#E74C3C', label='Removed')
+ax2.set_yticks(list(y_pos))
+ax2.set_yticklabels(authors)
+ax2.set_title('LOC per Author', fontweight='bold')
+ax2.set_xlabel('Lines of Code')
+ax2.legend()
+ax2.invert_yaxis()
+
+plt.tight_layout()
+plt.savefig('/tmp/sprint-chart-contributors.png', dpi=150)
+print('Chart saved: /tmp/sprint-chart-contributors.png')
+"
+```
+
+---
+
+### Chart 3: LOC Trend (Line Chart)
+
+Daily lines added vs removed over the sprint.
+
+**Mermaid (for Markdown/File):**
+
+````markdown
+```mermaid
+xychart-beta
+  title "LOC Changes Over Time"
+  x-axis ["02-17", "02-18", ...]
+  y-axis "Lines" 0 --> MAX_VALUE
+  line "Added" [120, 85, ...]
+  line "Removed" [30, 45, ...]
+```
+````
+
+Build from `git log --numstat` grouped by date.
+
+**matplotlib (for Slack):**
+
+```bash
+python3 -c "
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import datetime
+
+# Data: replace with actual collected values
+dates = ['2026-02-17', '2026-02-18']
+added = [120, 85]
+removed = [30, 45]
+
+fig, ax = plt.subplots(figsize=(10, 4))
+x = [datetime.strptime(d, '%Y-%m-%d') for d in dates]
+ax.fill_between(x, added, alpha=0.3, color='#50C878')
+ax.plot(x, added, color='#50C878', linewidth=2, marker='o', label='Added')
+ax.fill_between(x, removed, alpha=0.3, color='#E74C3C')
+ax.plot(x, removed, color='#E74C3C', linewidth=2, marker='o', label='Removed')
+ax.set_title('LOC Changes Over Time', fontsize=14, fontweight='bold')
+ax.set_ylabel('Lines of Code')
+ax.legend()
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.savefig('/tmp/sprint-chart-loc-trend.png', dpi=150)
+print('Chart saved: /tmp/sprint-chart-loc-trend.png')
+"
+```
+
+Collect LOC per day with:
+```bash
+git log --after="$SINCE" --before="$UNTIL" --numstat --format='DATE:%ad' --date=short | \
+  awk '/^DATE:/ { date=$2; next }
+       NF==3 && $1 != "-" { added[date]+=$1; removed[date]+=$2 }
+       END { for (d in added) print d, "+"added[d], "-"removed[d] }' | sort
+```
+
+---
+
+### Chart 4: Hotspot / Churn Scatter Plot
+
+Plots files by change frequency (x-axis) vs churn (y-axis). Files in the
+top-right quadrant are priority refactoring targets.
+
+**Mermaid:** Mermaid does not support scatter plots. For Markdown/File output,
+use a table with visual indicators instead:
+
+````markdown
+| File | Changes | Churn | Priority |
+|------|---------|-------|----------|
+| foo.ts | 8 | 245 | REFACTOR |
+| bar.ts | 6 | 180 | REFACTOR |
+| baz.ts | 5 | 30 | OK |
+````
+
+Mark files as `REFACTOR` if they appear in both hotspots top-10 AND churn top-10.
+
+**matplotlib (for Slack):**
+
+```bash
+python3 -c "
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+# Data: replace with actual collected values
+files =      ['foo.ts',  'bar.ts',  'baz.ts']
+changes =    [8,         6,         5]          # change frequency
+churn =      [245,       180,       30]         # total churn (added + removed)
+is_hotspot = [True,      True,      False]
+
+fig, ax = plt.subplots(figsize=(10, 6))
+colors = ['#E74C3C' if h else '#4A90D9' for h in is_hotspot]
+ax.scatter(changes, churn, c=colors, s=100, alpha=0.7, edgecolors='black')
+
+for i, f in enumerate(files):
+    ax.annotate(f.split('/')[-1], (changes[i], churn[i]),
+                textcoords='offset points', xytext=(5, 5), fontsize=8)
+
+ax.set_title('Hotspot / Churn Analysis', fontsize=14, fontweight='bold')
+ax.set_xlabel('Change Frequency (# commits)')
+ax.set_ylabel('Code Churn (LOC added + removed)')
+ax.axhline(y=sum(churn)/len(churn), color='gray', linestyle='--', alpha=0.5, label='Avg churn')
+ax.axvline(x=sum(changes)/len(changes), color='gray', linestyle='--', alpha=0.5, label='Avg changes')
+ax.legend(['Refactoring target', 'Normal', 'Avg threshold'], loc='upper left')
+plt.tight_layout()
+plt.savefig('/tmp/sprint-chart-hotspots.png', dpi=150)
+print('Chart saved: /tmp/sprint-chart-hotspots.png')
+"
+```
+
+---
+
+### Uploading Chart PNGs to Slack
+
+After generating the chart PNGs, upload each one using the file upload workflow
+from the **slack-notify** skill. Upload all charts in sequence, then send the
+.md report file last. Use a descriptive `initial_comment` for each chart or
+batch them in a single thread.
+
+```bash
+# Upload each chart PNG — repeat for each chart file
+for CHART in /tmp/sprint-chart-*.png; do
+  FILE_NAME=$(basename "$CHART")
+  FILE_SIZE=$(wc -c < "$CHART" | tr -d ' ')
+
+  URL_RESPONSE=$(curl -s -X GET "https://slack.com/api/files.getUploadURLExternal" \
+    -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+    -G \
+    --data-urlencode "filename=${FILE_NAME}" \
+    --data-urlencode "length=${FILE_SIZE}")
+
+  UPLOAD_URL=$(echo "$URL_RESPONSE" | jq -r '.upload_url')
+  FILE_ID=$(echo "$URL_RESPONSE" | jq -r '.file_id')
+
+  curl -s -X POST "$UPLOAD_URL" -F "file=@${CHART}" > /dev/null
+
+  COMPLETE_PAYLOAD=$(jq -n \
+    --arg file_id "$FILE_ID" \
+    --arg channel "$SLACK_DEFAULT_CHANNEL" \
+    '{files: [{id: $file_id}], channel_id: $channel}')
+
+  curl -s -X POST "https://slack.com/api/files.completeUploadExternal" \
+    -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "$COMPLETE_PAYLOAD" > /dev/null
+done
+
+# Clean up temp files
+rm -f /tmp/sprint-chart-*.png
+```
+
+---
+
 ## Report Template
 
 Assemble the collected data into this structure:
