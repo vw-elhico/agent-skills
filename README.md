@@ -4,7 +4,10 @@ Reusable agent skills for the elhico team. Works with OpenCode, Claude Code, Cur
 
 ## Install
 
-### Core Skills (recommended for all developers)
+### Core Skills
+
+Core skills are project-relevant and should be installed per project. They are committed to the
+repository and shared with the whole team.
 
 ```bash
 npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/core
@@ -12,18 +15,15 @@ npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/core
 
 ### Optional Skills
 
-```bash
-# All optional skills
-npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/optional
-
-# Specific optional skill
-npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/optional --skill slack-notify
-```
-
-### Global installation (available across all projects)
+Optional skills are personal tools — install them globally so they are available across all
+projects but not committed to any repository.
 
 ```bash
-npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/core -g
+# All optional skills (global)
+npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/optional -g
+
+# Single optional skill (global)
+npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/optional --skill slack-notify -g
 ```
 
 ## Available Skills
