@@ -5,7 +5,7 @@ Reusable agent skills for the elhico team. Works with OpenCode, Claude Code, Cur
 ## Install
 
 ```bash
-npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/optional --skill slack-notify -g
+npx skills add vw-elhico/agent-skills --skill slack-notify -g
 ```
 
 ## Available Skills
@@ -16,7 +16,7 @@ npx skills add https://github.com/vw-elhico/agent-skills/tree/main/skills/option
 
 ## Adding New Skills
 
-1. Create a new directory under `skills/optional/`
+1. Create a new directory at the repo root
 2. Add a `SKILL.md` with YAML frontmatter:
 
 ```markdown
