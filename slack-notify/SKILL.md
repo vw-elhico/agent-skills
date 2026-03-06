@@ -52,8 +52,8 @@ to `~/.config/opencode/.env` (global) or `.env.local` (project-specific).
 
 ### 1. Compose the message
 
-Keep messages concise and actionable. Always mention that you are Josie (the AI coding
-agent) so recipients know who sent it. Use Slack markdown where helpful:
+Keep messages concise and actionable. Always mention that the message was sent by an AI
+coding agent so recipients know the source. Use Slack markdown where helpful:
 - `*bold*` for emphasis
 - `` `code` `` for file paths, commands, identifiers
 - `>` for blockquotes / context
@@ -98,7 +98,7 @@ The API always returns HTTP 200. Check the JSON `ok` field — `true` means deli
 ## Setup: Create a Slack Bot Token
 
 1. Go to **https://api.slack.com/apps** → **Create New App** → **From scratch**
-2. Name the app (e.g. `elhico-notify`), pick your workspace → **Create App**
+ 2. Name the app (e.g. `my-agent-notify`), pick your workspace → **Create App**
 3. Left sidebar: **OAuth & Permissions**
 4. Scroll to **Scopes → Bot Token Scopes** → add **`chat:write`**
    - Also add **`chat:write.public`** to post to channels without an invite
