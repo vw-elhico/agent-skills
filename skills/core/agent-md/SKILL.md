@@ -1,6 +1,8 @@
 ---
 name: agent-md
 description: "Manage agent instruction files (AGENTS.md, CLAUDE.md, COPILOT.md). USE WHEN adding new instructions/rules to AGENTS.md, refactoring a bloated AGENTS.md, splitting agent instructions into linked files, or deciding where a rule belongs. Follows progressive disclosure principles."
+metadata:
+  internal: true
 ---
 
 # Agent MD

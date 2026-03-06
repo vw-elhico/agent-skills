@@ -1,6 +1,8 @@
 ---
 name: architecture
 description: Create ARCHITECTURE.md documentation for codebases (10k-200k LOC). Use when asked to document project architecture, create ARCHITECTURE.md, explain codebase structure to contributors, or map out high-level system design. Based on matklad's ARCHITECTURE.md pattern for bridging the gap between new and core contributors.
+metadata:
+  internal: true
 ---
 
 # Architecture Documentation

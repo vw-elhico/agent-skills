@@ -1,5 +1,7 @@
 ---
 name: execplan
+metadata:
+  internal: true
 description: >
   Create, implement, discuss, and maintain Execution Plans (ExecPlans) — self-contained design
   documents that guide a coding agent or novice through delivering a working feature or system

@@ -1,6 +1,8 @@
 ---
 name: github-issue
 description: Write and refine GitHub issues (features and bugs). Use when the user wants to create a new GitHub issue, improve an existing issue draft, or refine an open issue on GitHub. Triggers on phrases like "create issue", "write issue", "new issue", "refine issue", "improve issue", "github issue".
+metadata:
+  internal: true
 ---
 
 # GitHub Issue

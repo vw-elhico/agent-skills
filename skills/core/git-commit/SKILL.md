@@ -1,6 +1,8 @@
 ---
 name: git-commit
 description: Use when creating git commits - analyzes changes, ensures code quality, generates conventional commit messages with issue number
+metadata:
+  internal: true
 ---
 
 # Git Commit Skill

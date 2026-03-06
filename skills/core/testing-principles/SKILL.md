@@ -4,6 +4,8 @@ description: >
   Test type selection (unit/integration/component/E2E), mocking vs faking decisions,
   managed vs unmanaged dependencies. Use when writing tests, deciding what type of test
   to write, whether to mock or fake a dependency, or whether code should be tested at all.
+metadata:
+  internal: true
 ---
 
 # Testing Principles

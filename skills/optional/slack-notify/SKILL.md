@@ -1,6 +1,8 @@
 ---
 name: slack-notify
 description: Send Slack notifications via Bot Token (chat.postMessage). Use when you want to notify the user about completed tasks, errors, important results, or any status updates worth surfacing in Slack. Supports sending to any channel or user DM. Triggers on phrases like "send slack", "notify slack", "slack message", "ping me on slack", "send notification".
+metadata:
+  internal: true
 ---
 
 # Slack Notify Skill
