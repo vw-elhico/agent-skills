@@ -29,6 +29,7 @@ npx skills add vw-elhico/agent-skills -g
 | `execplan` | Create, implement, discuss, and maintain Execution Plans (ExecPlans) |
 | `git-commit` | Analyze changes, ensure code quality, generate conventional commit messages with issue number |
 | `github-issue` | Write and refine GitHub issues (features and bugs) |
+| `slack-notify` | Send Slack notifications via Bot Token to channels, group DMs, or individual users |
 | `testing-principles` | Test type selection, mocking vs faking decisions, managed vs unmanaged dependencies |
 
 ## Adding New Skills
